@@ -59,6 +59,12 @@ var injectedMixins = [];
  * @interface ReactClassInterface
  * @internal
  */
+/**
+ * ReactClass 接口：
+ * | DEFINE_MANY：多次定义，覆盖定义 
+ * | DEFINE_MANY_MERGED：多次定义，合并定义 
+ * | DEFINE_ONCE：一次定义
+ */  
 var ReactClassInterface = {
 
   /**
@@ -364,6 +370,7 @@ function validateMethodOverride(isAlreadyDefined, name) {
  * Mixin helper which handles policy validation and reserved
  * specification keys when building React classes.
  */
+// 将传入的 spec 对象上的属性方法复制到 constructor 上
 function mixSpecIntoComponent(Constructor, spec) {
   if (!spec) {
     if (process.env.NODE_ENV !== 'production') {
@@ -385,8 +392,12 @@ function mixSpecIntoComponent(Constructor, spec) {
   // By handling mixins before any other properties, we ensure the same
   // chaining order is applied to methods with DEFINE_MANY policy, whether
   // mixins are listed before or after these methods in the spec.
+  /**
+   * 优先独立处理 mixins 属性
+   */
   if (spec.hasOwnProperty(MIXINS_KEY)) {
-     
+    RESERVED_SPEC_KEYS.mixins(Constructor, spec.mixins);
+  }
 
   for (var name in spec) {
     if (!spec.hasOwnProperty(name)) {
@@ -579,6 +590,7 @@ function bindAutoBindMethods(component) {
  * Add more to the ReactClass base class. These are all legacy features and
  * therefore not already part of the modern ReactComponent.
  */
+// 强化 ReactClass 基类
 var ReactClassMixin = {
 
   /**
@@ -603,6 +615,7 @@ var ReactClassMixin = {
   }
 };
 
+// 对 ReactClassComponent 进行原型强化
 var ReactClassComponent = function () {};
 _assign(ReactClassComponent.prototype, ReactComponent.prototype, ReactClassMixin);
 
@@ -638,6 +651,7 @@ var ReactClass = {
         bindAutoBindMethods(this);
       }
 
+      // 属性初始化
       this.props = props;
       this.context = context;
       this.refs = emptyObject;
@@ -661,12 +675,16 @@ var ReactClass = {
 
       this.state = initialState;
     });
+
+    // 类式继承 ReactClassComponent 
     Constructor.prototype = new ReactClassComponent();
     Constructor.prototype.constructor = Constructor;
     Constructor.prototype.__reactAutoBindPairs = [];
 
+    // 这里运用了一个巧妙的设计技巧，使得通过 injection 接口传入的 mixins 对象，都可以混入 constructor
     injectedMixins.forEach(mixSpecIntoComponent.bind(null, Constructor));
 
+    // 将 spec 混入 Constructor
     mixSpecIntoComponent(Constructor, spec);
 
     // Initialize the defaultProps property after all mixins have been merged.
@@ -695,6 +713,7 @@ var ReactClass = {
     }
 
     // Reduce time spent doing lookups by setting these on the prototype.
+    // 没有设置的规范属性，置 null 
     for (var methodName in ReactClassInterface) {
       if (!Constructor.prototype[methodName]) {
         Constructor.prototype[methodName] = null;
