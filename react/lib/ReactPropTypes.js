@@ -68,22 +68,67 @@ var warning = require('fbjs/lib/warning');
 var ANONYMOUS = '<<anonymous>>';
 
 var ReactPropTypes = {
+  // 数组类型
   array: createPrimitiveTypeChecker('array'),
+  // 布尔类型
   bool: createPrimitiveTypeChecker('boolean'),
+  // 函数类型
   func: createPrimitiveTypeChecker('function'),
+  // 数值类型
   number: createPrimitiveTypeChecker('number'),
+  // 普通对象类型
   object: createPrimitiveTypeChecker('object'),
+  // 字符串类型
   string: createPrimitiveTypeChecker('string'),
+  // symbol 类型
   symbol: createPrimitiveTypeChecker('symbol'),
 
+  // 任意类型检测
   any: createAnyTypeChecker(),
+  /**
+   * 指定类型组成的数组
+   * optionalArrayOf: React.PropTypes.arrayOf(React.PropTypes.number)
+   **/
   arrayOf: createArrayOfTypeChecker,
+  /**
+   * React 元素
+   **/
   element: createElementTypeChecker(),
+  /**
+   * 用 JS 的 instanceof 操作符声明 prop 为指定类的实例。
+   * optionalMessage: React.PropTypes.instanceOf(Message)
+   **/
   instanceOf: createInstanceTypeChecker,
+  /**
+   * 所有可以被渲染的对象：数字，字符串，DOM 元素或包含这些类型的数组
+   **/
   node: createNodeChecker(),
+  /**
+   * 指定类型的属性构成的对象
+   * optionalObjectOf: React.PropTypes.objectOf(React.PropTypes.number)
+   **/
   objectOf: createObjectOfTypeChecker,
+  /**
+   * 用 enum 来限制 prop 只接受指定的值。
+   * optionalEnum: React.PropTypes.oneOf(['News', 'Photos'])
+   **/
   oneOf: createEnumTypeChecker,
+  /**
+   * 指定的多个对象类型中的一个
+   * optionalUnion: React.PropTypes.oneOfType([
+   *  React.PropTypes.string,
+   *  React.PropTypes.number,
+   *  React.PropTypes.instanceOf(Message)
+   * ]),
+   **/
   oneOfType: createUnionTypeChecker,
+  /**
+   * 特定形状参数的对象
+   * optionalObjectWithShape: React.PropTypes.shape({
+   *  color: React.PropTypes.string,
+   *  fontSize: React.PropTypes.number
+   * })
+   **/
   shape: createShapeTypeChecker
 };
 
@@ -123,6 +168,11 @@ function createChainableTypeChecker(validate) {
   if (process.env.NODE_ENV !== 'production') {
     var manualPropTypeCallCache = {};
   }
+  /** checkType 函数与传入的 validate 函数，构成了属性类型检查的核心代码，其中：
+   * checkType 函数只负责对 null，undefined 的检测，有效性的检测交给了外部定制的 validate 函数，
+   * 这么做的原因很简单，有效性的检测因各类要求而不尽统一，这样的设计增强了有效性检测的可扩展性，
+   * 因此，在下边的各类具体化函数的实现中，调用 checkType 之前都必须定义相应的 validate 函数并传入
+   **/
   function checkType(isRequired, props, propName, componentName, location, propFullName, secret) {
     componentName = componentName || ANONYMOUS;
     propFullName = propFullName || propName;
@@ -136,6 +186,7 @@ function createChainableTypeChecker(validate) {
       }
     }
     if (props[propName] == null) {
+      // 处理 null 和 undefined
       var locationName = ReactPropTypeLocationNames[location];
       if (isRequired) {
         if (props[propName] === null) {
@@ -145,6 +196,7 @@ function createChainableTypeChecker(validate) {
       }
       return null;
     } else {
+      // 有效性处理
       return validate(props, propName, componentName, location, propFullName);
     }
   }
@@ -160,6 +212,7 @@ function createPrimitiveTypeChecker(expectedType) {
     var propValue = props[propName];
     var propType = getPropType(propValue);
     if (propType !== expectedType) {
+      // 定制函数，根据传入的数据类型字符串进行类型判断
       var locationName = ReactPropTypeLocationNames[location];
       // `propValue` being instance of, say, date/regexp, pass the 'object'
       // check, but we can offer a more precise error message here rather than
@@ -189,6 +242,7 @@ function createArrayOfTypeChecker(typeChecker) {
       return new PropTypeError('Invalid ' + locationName + ' `' + propFullName + '` of type ' + ('`' + propType + '` supplied to `' + componentName + '`, expected an array.'));
     }
     for (var i = 0; i < propValue.length; i++) {
+      // 逐个检查有效性
       var error = typeChecker(propValue, i, componentName, location, propFullName + '[' + i + ']', ReactPropTypesSecret);
       if (error instanceof Error) {
         return error;
@@ -203,6 +257,7 @@ function createElementTypeChecker() {
   function validate(props, propName, componentName, location, propFullName) {
     var propValue = props[propName];
     if (!ReactElement.isValidElement(propValue)) {
+      // react element 验证
       var locationName = ReactPropTypeLocationNames[location];
       var propType = getPropType(propValue);
       return new PropTypeError('Invalid ' + locationName + ' `' + propFullName + '` of type ' + ('`' + propType + '` supplied to `' + componentName + '`, expected a single ReactElement.'));
@@ -215,6 +270,7 @@ function createElementTypeChecker() {
 function createInstanceTypeChecker(expectedClass) {
   function validate(props, propName, componentName, location, propFullName) {
     if (!(props[propName] instanceof expectedClass)) {
+      // 实例验证
       var locationName = ReactPropTypeLocationNames[location];
       var expectedClassName = expectedClass.name || ANONYMOUS;
       var actualClassName = getClassName(props[propName]);
@@ -234,6 +290,7 @@ function createEnumTypeChecker(expectedValues) {
   function validate(props, propName, componentName, location, propFullName) {
     var propValue = props[propName];
     for (var i = 0; i < expectedValues.length; i++) {
+      // 与其中一个相等即可
       if (is(propValue, expectedValues[i])) {
         return null;
       }
@@ -258,6 +315,7 @@ function createObjectOfTypeChecker(typeChecker) {
       return new PropTypeError('Invalid ' + locationName + ' `' + propFullName + '` of type ' + ('`' + propType + '` supplied to `' + componentName + '`, expected an object.'));
     }
     for (var key in propValue) {
+      // 逐个验证属性的有效性
       if (propValue.hasOwnProperty(key)) {
         var error = typeChecker(propValue, key, componentName, location, propFullName + '.' + key, ReactPropTypesSecret);
         if (error instanceof Error) {
@@ -278,6 +336,7 @@ function createUnionTypeChecker(arrayOfTypeCheckers) {
 
   function validate(props, propName, componentName, location, propFullName) {
     for (var i = 0; i < arrayOfTypeCheckers.length; i++) {
+      // 满足其中一种类型即可
       var checker = arrayOfTypeCheckers[i];
       if (checker(props, propName, componentName, location, propFullName, ReactPropTypesSecret) == null) {
         return null;
@@ -293,6 +352,7 @@ function createUnionTypeChecker(arrayOfTypeCheckers) {
 function createNodeChecker() {
   function validate(props, propName, componentName, location, propFullName) {
     if (!isNode(props[propName])) {
+      // node 类型
       var locationName = ReactPropTypeLocationNames[location];
       return new PropTypeError('Invalid ' + locationName + ' `' + propFullName + '` supplied to ' + ('`' + componentName + '`, expected a ReactNode.'));
     }
