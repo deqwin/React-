@@ -102,6 +102,7 @@ function defineRefPropWarningGetter(props, displayName) {
  * @internal
  */
 var ReactElement = function (type, key, ref, self, source, owner, props) {
+  // react 元素长这个样子，$$typeof 属性作为 ReactElement 的唯一标识，也是 isValidElement 方法判断的标准
   var element = {
     // This tag allow us to uniquely identify this as a React Element
     $$typeof: REACT_ELEMENT_TYPE,
@@ -179,9 +180,11 @@ ReactElement.createElement = function (type, config, children) {
   var source = null;
 
   if (config != null) {
+    // 提取 props 中的 ref 属性
     if (hasValidRef(config)) {
       ref = config.ref;
     }
+    // 提取 props 中的 key 属性
     if (hasValidKey(config)) {
       key = '' + config.key;
     }
@@ -189,6 +192,7 @@ ReactElement.createElement = function (type, config, children) {
     self = config.__self === undefined ? null : config.__self;
     source = config.__source === undefined ? null : config.__source;
     // Remaining properties are added to a new props object
+    // 设置剩余的 props 属性
     for (propName in config) {
       if (hasOwnProperty.call(config, propName) && !RESERVED_PROPS.hasOwnProperty(propName)) {
         props[propName] = config[propName];
@@ -198,6 +202,7 @@ ReactElement.createElement = function (type, config, children) {
 
   // Children can be more than one argument, and those are transferred onto
   // the newly allocated props object.
+  // 设置 children，允许传入多参数，并将结果值挂载到 props 上
   var childrenLength = arguments.length - 2;
   if (childrenLength === 1) {
     props.children = children;
@@ -215,6 +220,7 @@ ReactElement.createElement = function (type, config, children) {
   }
 
   // Resolve default props
+  // 这个情况针对在传入的 type 为 ReactClass 时生效，将组件原本的 defaultProps 属性继承到新元素的 props 上
   if (type && type.defaultProps) {
     var defaultProps = type.defaultProps;
     for (propName in defaultProps) {
@@ -236,12 +242,16 @@ ReactElement.createElement = function (type, config, children) {
       }
     }
   }
+  // 返回一个 ReactElement 元素
   return ReactElement(type, key, ref, self, source, ReactCurrentOwner.current, props);
 };
 
 /**
  * Return a function that produces ReactElements of a given type.
  * See https://facebook.github.io/react/docs/top-level-api.html#react.createfactory
+ */
+/**
+ * 只传入 type，实现 createElement 方法的工厂化
  */
 ReactElement.createFactory = function (type) {
   var factory = ReactElement.createElement.bind(null, type);
@@ -254,6 +264,9 @@ ReactElement.createFactory = function (type) {
   return factory;
 };
 
+/**
+ * 克隆一个 key 值不同的 ReactElement
+ */
 ReactElement.cloneAndReplaceKey = function (oldElement, newKey) {
   var newElement = ReactElement(oldElement.type, newKey, oldElement.ref, oldElement._self, oldElement._source, oldElement._owner, oldElement.props);
 
@@ -263,6 +276,9 @@ ReactElement.cloneAndReplaceKey = function (oldElement, newKey) {
 /**
  * Clone and return a new ReactElement using element as the starting point.
  * See https://facebook.github.io/react/docs/top-level-api.html#react.cloneelement
+ */
+/**
+ * 完全克隆一个 ReactElement
  */
 ReactElement.cloneElement = function (element, config, children) {
   var propName;
@@ -332,6 +348,9 @@ ReactElement.cloneElement = function (element, config, children) {
  * @param {?object} object
  * @return {boolean} True if `object` is a valid component.
  * @final
+ */
+/**
+ * 有效 ReactElement 验证
  */
 ReactElement.isValidElement = function (object) {
   return typeof object === 'object' && object !== null && object.$$typeof === REACT_ELEMENT_TYPE;
